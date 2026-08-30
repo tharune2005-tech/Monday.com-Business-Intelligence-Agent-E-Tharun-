@@ -1,0 +1,13 @@
+node_modules
+.next
+out
+.vercel
+.env
+.env.local
+.env*.local
+*.log
+.DS_Store
+next-env.d.ts
+/Deal funnel Data.xlsx
+/Work_Order_Tracker Data.xlsx
+/*.pdf
