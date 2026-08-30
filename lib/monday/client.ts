@@ -94,10 +94,21 @@ async function fetchLiveBoard(boardId: string): Promise<MondayBoard> {
 }
 
 async function loadSnapshot(): Promise<{ boards: MondayBoard[]; syncedAt: string }> {
-  const file = path.join(process.cwd(), "data", "monday-snapshot.json");
-  const raw = await readFile(file, "utf8");
-  const snap = JSON.parse(raw) as MondaySnapshot;
-  return { boards: snap.boards, syncedAt: snap.syncedAt };
+  const candidates = [
+    path.join(process.cwd(), "data", "monday-snapshot.json"),
+    path.join(process.cwd(), "monday-snapshot.json"),
+  ];
+  for (const file of candidates) {
+    try {
+      const raw = await readFile(file, "utf8");
+      const snap = JSON.parse(raw) as MondaySnapshot;
+      return { boards: snap.boards, syncedAt: snap.syncedAt };
+    } catch {
+      /* try next path or bundled import */
+    }
+  }
+  const bundled = (await import("../../data/monday-snapshot.json")).default as MondaySnapshot;
+  return { boards: bundled.boards, syncedAt: bundled.syncedAt };
 }
 
 export async function loadBoards(force = false): Promise<{

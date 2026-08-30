@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import type { AgentResponse, ChatMessage, Metric, WorkbookPayload } from "@/lib/monday/types";
 import type { LeadershipBriefing } from "@/lib/analytics/briefing";
+import { snapshotBriefing, snapshotChat, snapshotStatus } from "@/lib/runtime/snapshot-agent";
 
 type Status = {
   mode: "live" | "snapshot";
@@ -39,12 +40,21 @@ export function PerchApp() {
   );
   const scroller = useRef<HTMLDivElement>(null);
 
+  const clientAgent = process.env.NEXT_PUBLIC_CLIENT_AGENT === "true";
+
   useEffect(() => {
+    if (clientAgent) {
+      setStatus(snapshotStatus());
+      return;
+    }
     fetch("/api/status")
-      .then((r) => r.json())
-      .then(setStatus)
-      .catch(() => setStatus(null));
-  }, []);
+      .then(async (r) => {
+        const json = await r.json();
+        if (!r.ok) throw new Error("status unavailable");
+        setStatus(json);
+      })
+      .catch(() => setStatus(snapshotStatus()));
+  }, [clientAgent]);
 
   useEffect(() => {
     scroller.current?.scrollTo({ top: scroller.current.scrollHeight, behavior: "smooth" });
@@ -53,14 +63,24 @@ export function PerchApp() {
   useEffect(() => {
     if (tab !== "brief" || briefing) return;
     setBriefError(null);
+    if (clientAgent) {
+      setBriefing(snapshotBriefing());
+      return;
+    }
     fetch("/api/briefing")
       .then(async (r) => {
         const json = await r.json();
         if (!r.ok) throw new Error(json.error || "Failed to load briefing");
         setBriefing(json);
       })
-      .catch((e: Error) => setBriefError(e.message));
-  }, [tab, briefing]);
+      .catch(() => {
+        try {
+          setBriefing(snapshotBriefing());
+        } catch (e) {
+          setBriefError(e instanceof Error ? e.message : "Failed to load briefing");
+        }
+      });
+  }, [tab, briefing, clientAgent]);
 
   async function send(text: string) {
     const trimmed = text.trim();
@@ -74,12 +94,23 @@ export function PerchApp() {
     setInput("");
     setBusy(true);
     try {
-      const res = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: history }),
-      });
-      const payload = (await res.json()) as AssistantPayload;
+      let payload: AssistantPayload | null = null;
+      if (!clientAgent) {
+        try {
+          const res = await fetch("/api/chat", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ messages: history }),
+          });
+          const json = (await res.json()) as AssistantPayload;
+          if (res.ok && json.headline) payload = json;
+        } catch {
+          payload = null;
+        }
+      }
+      if (!payload) {
+        payload = await snapshotChat(history);
+      }
       setMessages((m) => [...m, { role: "assistant", text: payload.headline, payload }]);
     } catch {
       setMessages((m) => [

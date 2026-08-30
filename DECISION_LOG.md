@@ -24,6 +24,8 @@ Cap: two pages. Written as of 30 Aug 2026.
 
 10. **Ambiguous “revenue” is answered as four layers** (won / WO contracted / billed / collected) instead of a clarifying question that delays the meeting.
 
+11. **Off-topic questions are not answered as facts.** If the ask has no board/metric signal, the agent says it cannot understand and still returns the open-pipeline report so the meeting is not empty.
+
 ## Trade-offs
 
 | Choice | Rejected | Why |
@@ -31,9 +33,11 @@ Cap: two pages. Written as of 30 Aug 2026.
 | Deterministic analytics + optional LLM polish | LLM tool-calling as source of numbers | Take-home data is messy; a model will hallucinate crores. |
 | GraphQL API | Monday MCP as the hosted path | MCP is awkward on a public serverless URL; API is what Monday documents for tokens. |
 | Text columns for status/stage on import | Native Monday status | Source labels are inconsistent (“BIlled”, “Pause / struck”). A fixed label set would drop rows. |
-| Snapshot fallback | Live-only prototype | Live-only fails the “testable without local setup” deliverable unless we share a workspace. |
+| Snapshot fallback | Live-only prototype | Live-only fails “testable without local setup” unless we share a workspace. |
+| GitHub Pages (in-browser snapshot) | Vercel-only host | The public link cannot depend on a Vercel login. Live GraphQL remains on the Next.js server path. |
 | In-memory 45s cache | Always hit Monday | Keep the chat snappy; boards are not tick-level. |
 | No AR ageing | Invent 30/60/90 buckets | Collection date and collection status are unused. |
+| Excel only when asked | Always dump rows | Founder questions want a take, not a file; row-level lists are a follow-on. |
 
 ## Leadership updates — how I read the optional requirement
 
