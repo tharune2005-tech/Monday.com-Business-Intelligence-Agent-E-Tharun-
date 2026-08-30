@@ -3,28 +3,30 @@
 @tailwind utilities;
 
 :root {
-  --grid: rgba(212, 240, 106, 0.045);
+  --page: #10140e;
+  --grid: rgba(212, 240, 106, 0.04);
+}
+
+html {
+  background-color: var(--page);
 }
 
 html,
 body {
-  height: 100%;
+  min-height: 100%;
 }
 
 body {
-  background:
-    radial-gradient(1200px 600px at 10% -10%, rgba(110, 196, 184, 0.08), transparent 55%),
-    radial-gradient(900px 500px at 110% 0%, rgba(224, 122, 74, 0.07), transparent 50%),
-    #10140e;
+  background-color: var(--page);
   color: #efe7d4;
 }
 
 .survey-grid {
+  background-color: var(--page);
   background-image:
     linear-gradient(var(--grid) 1px, transparent 1px),
     linear-gradient(90deg, var(--grid) 1px, transparent 1px);
   background-size: 48px 48px;
-  mask-image: radial-gradient(ellipse at 50% 0%, black 30%, transparent 78%);
 }
 
 .hairline {
@@ -38,4 +40,7 @@ body {
 ::-webkit-scrollbar-thumb {
   background: rgba(239, 231, 212, 0.16);
   border-radius: 99px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
 }

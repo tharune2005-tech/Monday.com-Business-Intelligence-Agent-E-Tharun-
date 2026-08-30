@@ -12,10 +12,11 @@ export async function polishWithLlm(
   const model = process.env.OPENAI_MODEL || "gpt-4o-mini";
   const question = messages.filter((m) => m.role === "user").slice(-1)[0]?.content ?? "";
 
-  const system = `You are Perch, a founder BI analyst for Skylark Drones. You rewrite a grounded analytics draft into a crisp spoken-style answer.
+  const system = `You are Perch, the Monday.com Business Intelligence Agent. You rewrite a grounded analytics draft into a crisp spoken-style answer.
 Rules:
 - Do NOT invent, round-away, or change any number, date, count, or percentage. Copy figures exactly from the draft.
 - Keep the same caveats. You may tighten wording.
+- If the draft says the question was not understood, keep that. Do not answer the off-topic question. Do not drop pipeline numbers.
 - Sound like a sharp chief of staff, not a chatbot. No fluff, no "great question".
 - Source of data: ${sourceLabel}.
 Return JSON with keys: headline (string), body (string array, 2-5 short paragraphs), followUps (string array, 3).`;

@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
-import type { AgentResponse, ChatMessage, Metric } from "@/lib/monday/types";
+import type { AgentResponse, ChatMessage, Metric, WorkbookPayload } from "@/lib/monday/types";
 import type { LeadershipBriefing } from "@/lib/analytics/briefing";
 
 type Status = {
@@ -20,10 +20,10 @@ type AssistantPayload = AgentResponse & {
 
 const STARTERS = [
   "How's our pipeline looking for energy sector this quarter?",
+  "Give me Deal Name, Owner code, Client code for those with deal status Open",
   "Prepare a leadership update I can walk through in 5 minutes",
   "Where is billing stuck, and how much is still to bill?",
-  "Can I trust the win rate on this board?",
-  "Which work orders are past probable end and not completed?",
+  "Excel of work orders past probable end and not completed",
 ];
 
 export function PerchApp() {
@@ -133,15 +133,17 @@ export function PerchApp() {
   );
 
   return (
-    <div className="relative min-h-screen">
-      <div className="survey-grid pointer-events-none absolute inset-0" />
+    <div className="relative min-h-screen bg-ink-950">
+      <div className="survey-grid pointer-events-none fixed inset-0" />
       <div className="relative mx-auto grid min-h-screen max-w-[1440px] grid-cols-1 lg:grid-cols-[320px_1fr]">
-        <aside className="flex flex-col gap-8 border-b border-paper/10 px-6 py-8 lg:border-b-0 lg:border-r">
+        <aside className="flex flex-col gap-8 border-b border-paper/10 px-6 py-8 lg:sticky lg:top-0 lg:h-screen lg:overflow-y-auto lg:border-b-0 lg:border-r">
           <div>
-            <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-lime-dim">Skylark Drones</p>
+            <p className="max-w-[18rem] font-mono text-[11px] uppercase leading-relaxed tracking-[0.08em] text-lime-dim">
+              Monday.com Business Intelligence Agent
+            </p>
             <h1 className="mt-2 font-display text-5xl leading-none text-paper">Perch</h1>
             <p className="mt-3 max-w-[18rem] text-sm leading-relaxed text-mist">
-              A high vantage on messy Monday.com boards — deals and work orders, answered the way a founder asks.
+              A high vantage on messy Monday.com boards — deals and work orders.
             </p>
           </div>
 
@@ -184,37 +186,18 @@ export function PerchApp() {
                 key={id}
                 type="button"
                 onClick={() => setTab(id)}
-                className={`rounded-full px-4 py-2 text-sm transition ${
+                className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm transition ${
                   tab === id ? "bg-lime text-ink-950" : "bg-ink-800 text-paper hover:bg-ink-700"
                 }`}
               >
+                <MondayMark className={tab === id ? "opacity-90" : "opacity-80"} />
                 {label}
               </button>
             ))}
           </nav>
-
-          <div className="hidden lg:block">
-            <p className="font-mono text-[11px] uppercase tracking-widest text-mist">Try asking</p>
-            <ul className="mt-3 space-y-2">
-              {STARTERS.map((q) => (
-                <li key={q}>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setTab("ask");
-                      void send(q);
-                    }}
-                    className="w-full rounded-xl bg-ink-800/50 px-3 py-2 text-left text-sm text-paper/90 hover:bg-ink-700"
-                  >
-                    {q}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </div>
         </aside>
 
-        <main className="flex min-h-[70vh] flex-col px-4 py-6 sm:px-8">
+        <main className="flex min-h-screen flex-col px-4 py-6 sm:px-8">
           {tab === "ask" ? (
             <>
               <div ref={scroller} className="flex-1 space-y-6 overflow-y-auto pb-28">
@@ -240,7 +223,7 @@ export function PerchApp() {
               </div>
               <form
                 onSubmit={onSubmit}
-                className="pointer-events-none sticky bottom-0 mt-2 bg-gradient-to-t from-ink-950 via-ink-950 to-transparent pt-6"
+                className="pointer-events-none sticky bottom-0 mt-2 bg-ink-950 pt-6"
               >
                 <div className="pointer-events-auto hairline flex items-end gap-3 rounded-2xl bg-ink-800 p-2">
                   <textarea
@@ -275,27 +258,62 @@ export function PerchApp() {
   );
 }
 
+function downloadWorkbook(file: WorkbookPayload) {
+  const binary = atob(file.base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+  const blob = new Blob([bytes], { type: file.mimeType });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = file.filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+function MondayMark({ className = "" }: { className?: string }) {
+  return (
+    <svg
+      className={`h-3.5 w-3.5 shrink-0 ${className}`}
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+    >
+      <circle cx="5" cy="12" r="3.1" fill="#FFCC00" />
+      <circle cx="12" cy="12" r="3.1" fill="#6161FF" />
+      <circle cx="19" cy="12" r="3.1" fill="#00CA72" />
+    </svg>
+  );
+}
+
 function EmptyState({ onPick }: { onPick: (q: string) => void }) {
   return (
-    <div className="mx-auto max-w-2xl py-10 text-center">
-      <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-lime-dim">Founder briefing desk</p>
-      <h2 className="mt-3 font-display text-4xl leading-tight sm:text-5xl">
-        Ask across work orders and the deal funnel — without pretending the data is tidy.
-      </h2>
-      <p className="mx-auto mt-4 max-w-lg text-mist">
-        Perch reads Monday.com boards, normalises dates, sectors, and broken statuses, then answers with numbers plus the caveats a board pack should not hide.
-      </p>
-      <div className="mt-8 flex flex-wrap justify-center gap-2">
-        {STARTERS.slice(0, 3).map((q) => (
-          <button
-            key={q}
-            type="button"
-            onClick={() => onPick(q)}
-            className="rounded-full border border-paper/15 px-4 py-2 text-left text-sm hover:border-lime/50 hover:text-lime"
-          >
-            {q}
-          </button>
-        ))}
+    <div className="mx-auto max-w-2xl py-10">
+      <div className="text-center">
+        <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-lime-dim">Founder briefing desk</p>
+        <h2 className="mt-3 font-display text-4xl leading-tight sm:text-5xl">
+          Ask across work orders and the deal funnel — without pretending the data is tidy.
+        </h2>
+        <p className="mx-auto mt-4 max-w-lg text-mist">
+          Perch reads Monday.com boards, normalises dates, sectors, and broken statuses, then answers with numbers plus the caveats a board pack should not hide.
+        </p>
+      </div>
+      <div className="mt-10">
+        <p className="font-mono text-[11px] uppercase tracking-widest text-mist">Try asking</p>
+        <ul className="mt-3 space-y-2">
+          {STARTERS.map((q) => (
+            <li key={q}>
+              <button
+                type="button"
+                onClick={() => onPick(q)}
+                className="w-full rounded-xl bg-ink-800/50 px-4 py-3 text-left text-sm text-paper/90 hover:bg-ink-700 hover:text-lime"
+              >
+                {q}
+              </button>
+            </li>
+          ))}
+        </ul>
       </div>
     </div>
   );
@@ -311,7 +329,25 @@ function AnswerCard({
   if (!payload) return null;
   return (
     <article className="hairline max-w-[780px] rounded-3xl bg-ink-800/80 p-5 shadow-lift sm:p-6">
+      {payload.clarification && (
+        <p className="mb-3 font-mono text-[11px] uppercase tracking-[0.18em] text-lime-dim">
+          {payload.clarification}
+        </p>
+      )}
       <h3 className="font-display text-2xl leading-snug sm:text-3xl">{payload.headline}</h3>
+      {payload.workbook && (
+        <p className="mt-4 text-sm text-paper/90">
+          Spreadsheet:{" "}
+          <button
+            type="button"
+            onClick={() => downloadWorkbook(payload.workbook!)}
+            className="text-lime underline decoration-lime/50 underline-offset-4 hover:decoration-lime"
+          >
+            {payload.workbook.filename}
+          </button>{" "}
+          <span className="text-mist">({payload.workbook.rowCount} rows · .xlsx)</span>
+        </p>
+      )}
       {payload.metrics?.length > 0 && (
         <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3">
           {payload.metrics.map((m) => (
@@ -348,6 +384,39 @@ function AnswerCard({
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+      {payload.detailTable && payload.detailTable.rows.length > 0 && (
+        <div className="mt-5">
+          {payload.detailTable.caption && (
+            <p className="mb-2 font-mono text-[11px] uppercase tracking-widest text-mist">
+              {payload.detailTable.caption}
+            </p>
+          )}
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[480px] text-left text-sm">
+              <thead>
+                <tr className="border-b border-paper/10 font-mono text-[11px] uppercase tracking-wider text-mist">
+                  {payload.detailTable.columns.map((c) => (
+                    <th key={c} className="py-2 pr-3 font-medium">
+                      {c}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {payload.detailTable.rows.map((row, i) => (
+                  <tr key={i} className="border-b border-paper/5">
+                    {row.map((cell, j) => (
+                      <td key={j} className="py-2 pr-3">
+                        {cell}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
       {payload.caveats?.length > 0 && (

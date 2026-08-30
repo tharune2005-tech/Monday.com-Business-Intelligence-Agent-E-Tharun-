@@ -20,15 +20,21 @@ const mono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Perch — Skylark founder intelligence",
+  title: "Monday.com Business Intelligence Agent",
   description:
     "Conversational business intelligence over Monday.com deal funnel and work-order boards.",
+  icons: {
+    icon: [{ url: "/icon.svg", type: "image/svg+xml" }],
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
-      <body className={`${sans.variable} ${display.variable} ${mono.variable} font-sans antialiased`}>
+    <html lang="en" suppressHydrationWarning>
+      <body
+        className={`${sans.variable} ${display.variable} ${mono.variable} font-sans antialiased`}
+        suppressHydrationWarning
+      >
         {children}
       </body>
     </html>

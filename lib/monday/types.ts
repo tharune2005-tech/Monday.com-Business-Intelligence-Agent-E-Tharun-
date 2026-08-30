@@ -94,6 +94,14 @@ export type Metric = {
   hint?: string;
 };
 
+export type WorkbookPayload = {
+  filename: string;
+  base64: string;
+  mimeType: string;
+  rowCount: number;
+  truncatedPreview?: number;
+};
+
 export type AgentResponse = {
   headline: string;
   body: string[];
@@ -102,6 +110,8 @@ export type AgentResponse = {
   followUps: string[];
   clarification?: string;
   table?: { columns: string[]; rows: string[][] };
+  detailTable?: { caption?: string; columns: string[]; rows: string[][] };
+  workbook?: WorkbookPayload;
 };
 
 export type ChatMessage = {
@@ -119,14 +129,35 @@ export type QueryFilters = {
   rangeField: "tentative" | "close" | "created" | "po" | "end";
 };
 
+export type ReportFlag =
+  | "overdue"
+  | "slipped"
+  | "stuck"
+  | "missingValue"
+  | "notCompleted"
+  | "completed"
+  | "unbilled"
+  | "priority";
+
+export type ReportColumn = {
+  id: string;
+  label: string;
+  board: "deals" | "work-orders";
+};
+
 export type QueryIntent = {
   topics: Topic[];
   filters: QueryFilters;
   groupBy: "sector" | "stage" | "owner" | "status" | "product" | "execution" | null;
   compare: boolean;
   wantsBriefing: boolean;
+  wantsReport: boolean;
+  reportBoard: "deals" | "work-orders" | "both";
+  reportColumns: ReportColumn[];
+  reportFlags: ReportFlag[];
   raw: string;
   isFollowUp: boolean;
+  offTopic: boolean;
 };
 
 export type Topic =
@@ -142,4 +173,5 @@ export type Topic =
   | "quality"
   | "cross"
   | "briefing"
-  | "search";
+  | "search"
+  | "report";

@@ -1,5 +1,7 @@
 import type { AgentResponse, ChatMessage, Deal, QueryIntent, WorkOrder } from "../monday/types";
 import { buildBriefing } from "../analytics/briefing";
+import { sheetsToWorkbook } from "../analytics/excel";
+import { todayISO } from "../analytics/format";
 import {
   atRiskInsight,
   billingInsight,
@@ -15,8 +17,24 @@ import {
   winRateInsight,
   type InsightBundle,
 } from "../analytics/insights";
+import { buildReportSheets, previewTable } from "../analytics/report";
 import { looksLikeLookup, parseIntent } from "./parse";
 import { polishWithLlm } from "./llm";
+
+function offTopicPipeline(pipeline: AgentResponse): AgentResponse {
+  return {
+    ...pipeline,
+    clarification: "I can't understand that question.",
+    body: [
+      "I can't understand that question, but here is a real pipeline report.",
+      ...pipeline.body,
+    ].slice(0, 8),
+    caveats: [
+      "The question didn't match a deal, work order, metric, or filter, so I defaulted to open pipeline.",
+      ...pipeline.caveats,
+    ].slice(0, 6),
+  };
+}
 
 function mergeBundles(bundles: InsightBundle[], intent: QueryIntent): AgentResponse {
   const primary = bundles[0];
@@ -94,6 +112,8 @@ function runTools(intent: QueryIntent, deals: Deal[], workOrders: WorkOrder[]): 
       case "search":
         out.push(searchRecords(deals, workOrders, intent.raw));
         break;
+      case "report":
+        break;
       default:
         break;
     }
@@ -113,6 +133,73 @@ function runTools(intent: QueryIntent, deals: Deal[], workOrders: WorkOrder[]): 
   return out;
 }
 
+function reportFilename(intent: QueryIntent): string {
+  const bits = ["perch"];
+  if (intent.reportBoard === "work-orders") bits.push("work-orders");
+  else if (intent.reportBoard === "both") bits.push("boards");
+  else bits.push("deals");
+  if (intent.filters.statuses.length) bits.push(intent.filters.statuses.join("-").toLowerCase());
+  if (intent.filters.sectorLabel) bits.push(intent.filters.sectorLabel.split(" ")[0].toLowerCase());
+  if (intent.reportFlags.length) bits.push(intent.reportFlags.join("-"));
+  bits.push(todayISO());
+  return bits.join("-");
+}
+
+function buildExcelResponse(intent: QueryIntent, deals: Deal[], workOrders: WorkOrder[]): AgentResponse {
+  const sheets = buildReportSheets(
+    deals,
+    workOrders,
+    intent.filters,
+    intent.reportBoard,
+    intent.reportColumns,
+    intent.reportFlags,
+  );
+  const workbook = sheetsToWorkbook(sheets, reportFilename(intent));
+  const preview = previewTable(sheets, 25);
+
+  const contextIntent: QueryIntent = { ...intent, topics: intent.reportBoard === "work-orders" ? ["operations"] : ["pipeline"] };
+  const context = runTools(contextIntent, deals, workOrders)[0];
+
+  const colNote = intent.reportColumns.length
+    ? intent.reportColumns.map((c) => c.label).join(", ")
+    : "all fields for that board";
+
+  return {
+    headline: context?.headline || (workbook.rowCount === 0 ? "No rows matched that report." : `${workbook.rowCount} rows ready to export.`),
+    body: [
+      ...(context?.body ?? []),
+      workbook.rowCount === 0
+        ? "No row-level file was built because nothing matched those filters."
+        : `A spreadsheet of ${colNote} is attached as a download link below (${workbook.rowCount} rows). It does not start downloading until you click it. Blanks in the file are blanks in the source (including Open deals with no masked value).`,
+      preview.hidden > 0
+        ? `The detail preview shows the first ${preview.rows.length} rows; the Excel file has all ${workbook.rowCount}.`
+        : "",
+    ].filter(Boolean),
+    metrics: [
+      ...(context?.metrics ?? []),
+      { label: "Export rows", value: String(workbook.rowCount) },
+    ].slice(0, 6),
+    caveats: [
+      ...(context?.caveats ?? []),
+      intent.reportColumns.length === 0
+        ? "No specific columns were named, so the file includes the full field set for that board."
+        : `Excel columns: ${colNote}.`,
+    ].slice(0, 6),
+    followUps: context?.followUps?.length
+      ? context.followUps
+      : [
+          "Export all Open deals with every column",
+          "Excel of overdue work orders",
+          "Give me Deal Name, Owner code, Client code for Won deals",
+        ],
+    table: context?.table,
+    detailTable: preview.rows.length
+      ? { caption: "Requested columns (preview)", columns: preview.columns, rows: preview.rows }
+      : undefined,
+    workbook,
+  };
+}
+
 export async function answerQuestion(
   messages: ChatMessage[],
   deals: Deal[],
@@ -120,6 +207,25 @@ export async function answerQuestion(
   sourceLabel: string,
 ): Promise<AgentResponse> {
   const intent = parseIntent(messages);
+
+  if (intent.offTopic) {
+    const fallback: QueryIntent = {
+      ...intent,
+      topics: ["pipeline"],
+      wantsReport: false,
+      wantsBriefing: false,
+    };
+    const bundles = runTools(fallback, deals, workOrders);
+    const merged = mergeBundles(bundles, fallback);
+    merged.followUps = merged.followUps.length
+      ? merged.followUps
+      : ["How is the open pipeline?", "Energy this quarter", "Prepare a leadership update"];
+    return offTopicPipeline(merged);
+  }
+
+  if (intent.wantsReport) {
+    return buildExcelResponse(intent, deals, workOrders);
+  }
 
   if (intent.wantsBriefing) {
     const b = buildBriefing(deals, workOrders);
